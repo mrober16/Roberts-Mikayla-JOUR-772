@@ -1,0 +1,37 @@
+---
+title: "Rreverse_engineering_project"
+author: "Pablo Suarez & Mikayla Roberts"
+date: "2023-10-03"
+output: html_notebook
+---
+We started by loading our libraries and settings in the notebook
+```{r}
+#load libraries and settings
+library(tidyverse)
+library(janitor)
+library(dplyr)
+```
+We then imported our data set into RStudio.
+
+```{r}
+#load data set
+sports_political_donations <- read_csv("data/sports-political-donations.csv")
+
+sports_political_donations
+```
+Then we cleaned the data set so that all the column names were uniform, the 'recipient' names were all upper case, and the 'amount' column was a number set rather than a character set.
+```{r}
+clean_sports_pol_donations <- sports_political_donations |>
+  clean_names() |>
+  mutate(recipient = str_to_upper(recipient))
+
+clean_sports_pol_donations
+```
+Which team owners gave the most?
+We need to single out donations from team owners by cycle and party donated to. We were able to almost completely replicate the data presented however, we were unable to trouble-shoot the 'election_cycle' column.
+```{r}
+clean_sports_pol_donations |>
+  group_by(owner, team, league, party) |>
+  summarize(total_amount = sum(amount)) |>
+  arrange(desc(total_amount))
+```
