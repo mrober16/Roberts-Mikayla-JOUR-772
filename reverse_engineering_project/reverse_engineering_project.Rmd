@@ -1,7 +1,7 @@
 ---
 title: "Rreverse_engineering_project"
 author: "Pablo Suarez & Mikayla Roberts"
-date: "2023-10-03"
+date: "2023-10-15"
 output: html_notebook
 ---
 We started by loading our libraries and settings in the notebook
@@ -34,4 +34,117 @@ clean_sports_pol_donations |>
   group_by(owner, team, league, party) |>
   summarize(total_amount = sum(amount)) |>
   arrange(desc(total_amount))
+```
+MLB owners have donated the most
+To answer the question of "Which league owners have the most political donations?", we need to identify contributions from owners in each sport, by party, from 2016 to 2020. We were able to replicate the dataset however, there were a few total differences than that which is presented in the article.
+```{r}
+#group Republican donations by each league
+mlb_republican <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Republican" & str_detect(league, "MLB")) |>
+  summarise(total = sum(amount))
+
+nba_republican <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Republican" & str_detect(league, "NBA")) |>
+  summarise(total = sum(amount))
+
+nhl_republican <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Republican" & str_detect(league, "NHL")) |>
+  summarise(total = sum(amount))
+
+nfl_republican <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Republican" & str_detect(league, "NFL")) |>
+  summarise(total = sum(amount))
+
+wnba_republican <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Republican" & str_detect(league, "WNBA")) |>
+  summarise(total = sum(amount))
+
+nascar_republican <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Republican" & str_detect(league, "NASCAR")) |>
+  summarise(total = sum(amount))
+
+#group Democrat donations by each league
+mlb_democrat <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Democrat" & str_detect(league, "MLB")) |>
+  summarise(total = sum(amount))
+
+nba_democrat <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Democrat" & str_detect(league, "NBA")) |>
+  summarise(total = sum(amount))
+
+nhl_democrat <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Democrat" & str_detect(league, "NHL")) |>
+  summarise(total = sum(amount))
+
+nfl_democrat <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Democrat" & str_detect(league, "NFL")) |>
+  summarise(total = sum(amount))
+
+wnba_democrat <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Democrat" & str_detect(league, "WNBA")) |>
+  summarise(total = sum(amount))
+
+nascar_democrat <- clean_sports_pol_donations |>
+  group_by(party, league) |>
+  filter(party == "Democrat" & str_detect(league, "NASCAR")) |>
+  summarise(total = sum(amount))
+
+#combining each league's data into one dataset
+bipartisan_donations <- data.frame (league  = c("MLB", "NBA", "NHL", "NFL", "WNBA", "NASACAR"),
+    to_republicans = c(sum(mlb_republican$total), sum(nba_republican$total), sum(nhl_republican$total), sum(nfl_republican$total), sum(wnba_republican$total), sum(nascar_republican$total)),
+    to_democrats = c(sum(mlb_democrat$total), sum(nba_democrat$total), sum(nhl_democrat$total), sum(nfl_democrat$total), sum(wnba_democrat$total), sum(nascar_democrat$total)))
+
+bipartisan_donations <- bipartisan_donations |>
+  mutate(total = to_republicans + to_democrats)
+
+bipartisan_donations
+```
+"Significantly more money goes to Republicans: Specifically partisan contributions from owners and commissioners in the NFL, NBA, WNBA, NHL, MLB and NASCAR, per election cycle"
+For this chart, we will need to group contributions by election year, and then create columns for each year that break down donations by party and then also show the total amount donated that year. This can be achieved by making separate dataframes for each party's donations and then merging the dataframes.
+
+```{r}
+#group Republican donation data
+rep_df <- clean_sports_pol_donations |>
+  group_by(election_year, party) |>
+    summarise(total_amount=sum(amount)) |>
+    filter(party=="Republican") |>
+    arrange(desc(total_amount))
+
+rep_df_clean = subset(rep_df, select = -c(party))
+
+#group Democrat donation data
+dem_df <- clean_sports_pol_donations |>
+  group_by(election_year, party) |>
+    summarise(total_amount=sum(amount)) |>
+    filter(party=="Democrat") |>
+    arrange(desc(total_amount))
+
+dem_df_clean = subset(dem_df, select = -c(party))
+
+#name Republican and Democrat columns
+rep_df_clean <- rep_df_clean |>
+  rename("to_republicans" = "total_amount")
+
+dem_df_clean <- dem_df_clean |>
+  rename("to_democrats" = "total_amount")
+
+#combine Republican and Democrat data
+year_party_donations <- merge(rep_df_clean, dem_df_clean, by = "election_year")
+
+year_party_donations <- year_party_donations |>
+  mutate(total = to_democrats + to_republicans) |>
+  arrange(desc(election_year))
+
+year_party_donations
 ```
