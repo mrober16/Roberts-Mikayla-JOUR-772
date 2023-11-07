@@ -1,0 +1,124 @@
+---
+title: "lab_07"
+author: "derek willis"
+date: "2023-03-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## You will need
+
+-   A Census API key
+
+## Load libraries and establish settings
+
+You'll need to load two packages for this: the tidyverse and tidycensus.
+
+**Task** load these two packages
+
+```{r}
+# Turn off scientific notation
+options(scipen=999)
+
+# Load the tidyverse.
+library(tidyverse)
+library(tidycensus)
+library(janitor)
+```
+
+## Setup Census API
+
+You'll need your Census API Key:
+
+**Task** set your API Key if you haven't already. You won't need to install or overwrite it.
+
+```{r echo=FALSE}
+#census_api_key("9ff92b245c7c6ebbb3d6d83d9a2dccc26e6ac05c", install=TRUE)
+```
+
+## Load and view ACS variables
+
+You'll also need to load the list of American Community Survey variables from the 2021 5-year estimates so you can identify the codes you need:
+
+**Task** load the variables from the 2021 5-year ACS (which is called "acs5") and save them to a dataframe
+
+```{r}
+acs5 <- load_variables(2021, "acs5", cache = TRUE)
+View(acs5)
+```
+
+## Answer questions
+
+**Q1** What is the Maryland jurisdiction with the lowest median age, according to the ACS 2021 5-year estimates? You will need to find the variable for median age first. 
+**A1** 
+**Baltimore city, Maryland with a median age of 35.7**
+```{r}
+acs21 <- get_acs(geography = "county", variables = "B01002_001", year = 2021, state = "Maryland")
+
+acs21 |> arrange(estimate)
+```
+
+**Q2** Which Maryland counties have a median age of at least 50? You can use the dataframe you just made to answer this, but you must write code to display only those counties with a median age of at least 50. 
+**A2** 
+**Talbot County & Worcester County**
+```{r}
+acs21 |> filter(estimate >= "50.0")
+```
+
+**Q3** We're interested in knowing more about Montgomery County zip codes where overdose calls are coming from and the demographic characteristics they possess. In particular, we want to calculate a rate of calls per 1,000 population. To do this, you'll need to:
+
+1. Load the Montgomery County 911 overdose calls data.
+2. Create a new dataframe with the total number of calls for each zip code.
+3. Find the ACS variable pertaining to the total 18 and up population (there are several choices here; you want the simplest one).
+4. Get from the ACS data from all Maryland zip codes using that variable.
+5. Join the ACS data to the Montgomery County zip code totals dataframe and rename the estimate column to a meaningful name you've given the ACS variable.
+6. Add a column to the joined dataframe that calculates a rate of calls per 1,000 population.
+
+Which zip code has the highest rate of calls? Which has the lowest?
+
+**A3** 
+**20877,	Gaithersburg, had the highest rate of calls while 20833, Brookeville, had the lowest rate**
+```{r}
+#Load the Montgomery County 911 overdose calls data
+montgomery_2022_overdoses <- read_csv("data/montgomery_2022_overdoses.csv")
+```
+```{r}
+#Create a new dataframe with the total number of calls for each zip code
+montgomery_zip <- montgomery_2022_overdoses |> rename(zip_code=zip) |> group_by(zip_code) |> summarize(total_calls = n()) |> arrange(desc(total_calls))
+montgomery_zip
+```
+```{r}
+#Find the ACS variable pertaining to the total 18 and up population and get all Maryland zip codes using that variable
+acs19 <- get_acs(geography = "zcta", variables = "B09021_001", year = 2019, state = "Maryland")
+acs19 <- acs19 |> mutate("zip_code"=as.numeric(GEOID)) |> select("zip_code", "estimate", "moe")
+acs19
+```
+```{r}
+#Join the ACS data to the Montgomery County zip code totals dataframe and rename the estimate column to a meaningful name you've given the ACS variable
+combined_montgomery_911 <- left_join(montgomery_zip, acs19, by = "zip_code")
+combined_montgomery_911 <- combined_montgomery_911 |> rename(total_population=estimate)
+combined_montgomery_911
+```
+```{r}
+#Add a column to the joined dataframe that calculates a rate of calls per 1,000 population
+combined_montgomery_911 |> mutate(calls_per_1000 = (total_calls/total_population)*1000) |> arrange(desc(calls_per_1000))
+```
+
+**Q4** Using [CensusReporter.org](https://censusreporter.org/), examine the zip codes with the highest and lowest rates and compare and contrast their demographic profiles. Is there a story here?
+
+**A4** 
+**I find it interesting that, in Gaithersburg, almost 45% of the population are immigrants largely from Latin America - more than double Maryland's 15.4% rate. On the otherhand, Brookeville only has just over an 18% immigrant population largely from Asia - which is still about 20% higher than the Maryland rate. Gaithersburg also has over 15% of their population living below the poverty line - more than 1.5 times the Maryland rate of 9.2%. Contrastly, Brookeville only has 5.5% of their population living below the poverty line - which is only about 3/5th's of the Maryland rate.**
+**Q5** Go back to your joined dataframe from Q3 and add two more columns representing the minimum and maximum populations based on the estimate and margin of error, then calculate per capita rates for each. Do you get the same two zip codes for the highest and lowest as you did before? Does that give you more or less confidence in your answers to Q3?
+
+**A5** 
+**My answers did not differ from the result of Q3 which makes me a bit more confident in my intial answers.**
+```{r}
+combined_montgomery_911 |> 
+  mutate(calls_per_1000 = (total_calls/total_population)*1000) |>
+  mutate(calls_1000_min = (total_calls/(min = total_population - moe)*1000)) |>
+  mutate(calls_1000_max = (total_calls/(max = total_population + moe)*1000)) |> 
+  arrange(desc(calls_per_1000))
+```
