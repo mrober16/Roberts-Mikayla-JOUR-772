@@ -1,0 +1,172 @@
+---
+title: "lab_08"
+author: "derek willis"
+date: "2023-04-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries and establish settings
+
+**Task** Create a codeblock and load appropriate packages and settings for this lab. We'll be making some charts, working with dates and retrieving Census data.
+```{r}
+library(tidyverse)
+library(janitor)
+library(readr)
+library(tidycensus)
+library(lubridate)
+```
+```{r echo=FALSE}
+#census_api_key("9ff92b245c7c6ebbb3d6d83d9a2dccc26e6ac05c", install=TRUE)
+```
+## Load and modify data
+
+**Task** Create a codeblock and load the following data from the data folder: Prince George's County 911 Overdose Calls
+
+You will need to create columns for the date, week and month based on the existing `datetime` column.
+```{r}
+#load the data from the data folder
+pg_22_overdoses <- read_csv("data/prince_georges_2022_overdoses.csv")
+
+#create columns for the date, week and month based on the existing `datetime` column
+pg_22_overdoses <- pg_22_overdoses |> 
+  mutate(
+         date = date(datetime), 
+         week = week(date), 
+         month = month(date, label = TRUE, abbr = TRUE)
+         )
+
+pg_22_overdoses
+```
+## Questions 
+
+**Q1.** Which month saw the greatest percentage of total calls? Create a dataframe that calculates the percentage of all calls that each month's calls represents. Make a bar chart from that dataframe. Your bar chart must have:
+
+* A clear title that states the main idea/finding
+* Good labels for the x & y axis and a caption for the source, which is Prince George's County EMS.
+* Readable bars - the values shouldn't be overlapping
+
+Compare the results here to those from the pre_lab_08 bar chart - are there major differences in the months with the highest and lowest figures? Describe that below.
+
+**A1.** 
+**December saw the greatest percentage of total calls. Some Baltimore County's lowest call figures are some of PG County's highest and vice versa. However, calls in the month of February are consistently one of the lowest figures for both counties.**
+```{r}
+#create a dataframe that calculates the percentage of all calls that each month's calls represents
+perc_calls_month <- pg_22_overdoses |> 
+  group_by(month) |> 
+  summarize(total_calls = n()) |> 
+  mutate(perc_calls = (total_calls/1397)*100) |>
+  arrange(desc(total_calls))
+perc_calls_month
+#make a bar chart from that dataframe
+perc_calls_month |>
+  ggplot() +
+  geom_bar(aes(x=reorder(month,total_calls), weight=total_calls)) +
+  coord_flip() + 
+  labs(
+    title="PG County 911 Overdose Calls Hike in 3 Most Common Vacation Months",
+    x = "month",
+    y = "total calls",
+    caption = "source: Prince George's County EMS",
+    )
+```
+**Q2.** Let's visualize this data on a weekly basis using a line chart. As in Q1, generate a dataframe with the total number of calls for each week, and then create a line chart to show the distribution of calls over time. Your line chart must have:
+
+* A clear title that states the main idea/finding
+* Good labels for the x & y axis and a caption for the source, which is Prince George's County EMS.
+* Readable labels
+
+Describe the pattern of results; you may want to look at the data to dig into particular outliers.
+
+**A2.** 
+**The two most noticeable outliers are the highest number of calls, week 28 with 41 total calls, and the lowest number of calls, week 53 with a total of 4 calls.**
+```{r}
+#generate a dataframe with the total number of calls for each week
+week_calls <- pg_22_overdoses |> 
+  group_by(week) |> 
+  summarize(total_calls = n()) |>
+  arrange(desc(total_calls))
+week_calls
+
+#create a line chart to show the distribution of calls over time
+week_calls |>
+  ggplot() +
+  geom_line(aes(x=week, y=total_calls)) +
+  scale_x_continuous(breaks = unique(week_calls$week)) +
+  theme(axis.text.x = element_text(angle = 49,  hjust=1)) +
+  labs(
+    title="PG County 911 Overdose Calls Hike in 3 Most Common Vacation Months",
+    x = "week",
+    y = "total calls",
+    caption = "source: Prince George's County EMS",
+    )
+```
+**Q3.**  A scatterplot is a type of chart that helps us see relationships between two variables. One variable goes on the x axis, the other on the y axis.  For each row/observation in our data, a scatterplot puts a circle (or a "point") where the two variables intersect on a grid. 
+
+Statisticians use scatterplots to show graphically whether one variable is correlated -- related, in a statistical sense -- with another variable.  A classic example is the [relationship between ice cream sales and temperature](https://www.mathsisfun.com/data/scatter-xy-plots.html). The scatterplot below -- press play to load the image -- shows that relationship, that an increase in temperature is associated with an increase in ice cream sales. When it's 12C, sales are 200 dollars, and when it's hotter, 25C, sales are 600 dollars.
+
+```{r}
+knitr::include_graphics("https://www.mathsisfun.com/data/images/scatter-ice-cream1.svg")
+```
+We're going to use a scatterplot a little differently, to get a visual sense of two key variables: 
+
+Our question is: does the median income in a zip code have any relationship to the number of overdose 911 calls in that zip code?
+
+To answer this question, do the following:
+
+1. Generate a dataframe with the number of 911 calls for each zip code.
+2. Get data from the Census Bureau showing median household income for Maryland zip codes.
+3. Join those two dataframes on their zip code columns, starting with the 911 calls dataframe.
+4. Make a scatterplot showing the total calls and median income. I didn't show you how to do this, so look it up! Googling "ggplot scatterplot" is a good start.
+5. Give it an appropriate title, source, and x and y axis titles.
+6. Add a label for each point that shows the zip code using geom_text() - see some examples of its use at https://ggplot2.tidyverse.org/reference/geom_text.html#ref-examples. Try to make the names as easy to read as possible by avoiding overlap.
+7. In the answer space below, describe what you see and answer the questions posed above. In a general sense, what do you think this means? Feel free to consider the actual raw values: how would you report out the main point(s) of this chart?
+
+**A3.**
+**It is interesting that the lowest rate of calls is in the zip code with the highest median income, however, I'm not too positive that this relationship is correlative. Considering that correlating variables generally refers to variables that move in a consistent direction, it would appear that these are correlating variables.**
+```{r}
+#generate a dataframe with the number of 911 calls for each zip code
+zip_calls <- pg_22_overdoses |>
+  filter(!zipcode %in% c("0", "Q")) |>
+  group_by(zipcode) |> 
+  summarize(total_calls = n()) |>
+  arrange(desc(total_calls))
+zip_calls$zipcode <- as.numeric(zip_calls$zipcode)
+zip_calls
+```
+```{r}
+#get data from the Census Bureau showing median household income for Maryland zip codes
+md19 <- get_acs(geography = "zcta",
+              variables = c(medincome = "B19013_001"),
+              state = "MD",
+              year = 2019)
+md19 <- md19 |> mutate("zipcode"=as.numeric(GEOID)) |> select("zipcode", "estimate", "moe")
+md19
+```
+```{r}
+#join the two dataframes by their zip code columns, starting with the 911 calls dataframe
+calls_by_income <- left_join(zip_calls, md19, by = "zipcode")
+calls_by_income <- calls_by_income |> 
+  rename(medincome=estimate)
+calls_by_income |> 
+  arrange(desc(medincome))
+```
+```{r}
+#make a scatterplot showing the total calls and median income 
+calls_by_income |>
+  ggplot(aes(x=medincome, y=total_calls, label = zipcode)) +
+  geom_point() +
+  coord_flip() + 
+#add a label that shows the zip code using geom_text()
+  geom_text(nudge_x = c(15, 8), nudge_y = -4, size = 3) +
+#give it an appropriate title, source, x and y axis titles
+  labs(
+    title = "Lowest Rate of 911 Overdose Calls, Highest Median Income",
+    x = "median income",
+    y = "total calls",
+    caption = "source: Prince George's County EMS & U.S. Census (2019)"
+  )
+```
